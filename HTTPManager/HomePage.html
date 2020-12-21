@@ -1,7 +1,7 @@
 <html>
 
 <head>
-
+    <script src="https://code.jquery.com/jquery-latest.min.js"></script>
 </head>
 
 <body>
@@ -15,6 +15,10 @@
 <hr>
 <h3>Select an account</h3>
     <select id="accountSelection">
+         <option value="volvo">Volvo</option>
+  <option value="saab">Saab</option>
+  <option value="mercedes">Mercedes</option>
+  <option value="audi">Audi</option>
     </select>
     <button id="selectAccountButton">Select Account</button>
 
@@ -38,6 +42,110 @@
 </body>
 
 <script>
+    const URL_BASE = %s
+
+
+    var createNewKeyButton = document.getElementById("createNewKeyButton")
+    var currentPubkey = document.getElementById("currentPubkey")
+    var privKeyText = document.getElementById("privKeyText")
+    var showPrivateButton = document.getElementById("showPrivateButton")
+    var newKeyName = document.getElementById("newKeyName")
+    var accountSelection = document.getElementById("accountSelection")
+    var selectAccountButton = document.getElementById("selectAccountButton")
+    var pendingBalance = document.getElementById("pendingBalance")
+    var spendableBalance = document.getElementById("spendableBalance")
+    var destinationPubkey = document.getElementById("destinationPubkey")
+    var feeInput = document.getElementById("feeInput")
+    var amountInput = document.getElementById("amountInput")
+    var makeTransaction = document.getElementById("makeTransaction")
+    var lastTransactions = document.getElementById("lastTransactions")
+
+
+    if (createNewKeyButton) {
+        createNewKeyButton.onclick = function () {
+            console.log("createNewKeyButton clicked")
+
+            $.ajax({
+                type: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-type": "application/json"
+                },
+                url:URL_BASE + "/api/createkey",
+                data: JSON.stringify({ "name": newKeyName.value }),
+                success: function (response) {
+                    console.log(response)
+                },
+                error: function showErrorMessage(xhr, status, error) {
+                    console.log(xhr)
+                }
+            });
+        }
+    }
+    if (showPrivateButton) {
+        showPrivateButton.onclick = function () {
+            console.log("showPrivateButton clicked")
+
+            $.ajax({
+                type: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-type": "application/json"
+                },
+                url:URL_BASE + "/api/showprivate",
+                data: JSON.stringify({}),
+                success: function (response) {
+                    console.log(response)
+                },
+                error: function showErrorMessage(xhr, status, error) {
+                    console.log(xhr)
+                }
+            });
+        }
+    }
+    if (makeTransaction) {
+        makeTransaction.onclick = function () {
+            console.log("makeTransaction clicked")
+
+            $.ajax({
+                type: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-type": "application/json"
+                },
+                url:URL_BASE + "/api/maketransaction",
+                data: JSON.stringify({"destination": destinationPubkey.value, "fee": feeInput.value, "amount": amountInput.value}),
+                success: function (response) {
+                    console.log(response)
+                },
+                error: function showErrorMessage(xhr, status, error) {
+                    console.log(xhr)
+                }
+            });
+        }
+    }
+    if (selectAccountButton) {
+        selectAccountButton.onclick = function () {
+            console.log("selectAccountButton clicked")
+
+            $.ajax({
+                type: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-type": "application/json"
+                },
+                url:URL_BASE + "/api/selectaccount",
+                data: JSON.stringify({"account": accountSelection.selectedOptions[0].value}),
+                success: function (response) {
+                    console.log(response)
+                },
+                error: function showErrorMessage(xhr, status, error) {
+                    console.log(xhr)
+                }
+            });
+        }
+    }
+
 
 </script>
 </html>
