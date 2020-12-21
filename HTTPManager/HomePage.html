@@ -1,0 +1,43 @@
+<html>
+
+<head>
+
+</head>
+
+<body>
+<h3>Current Account PubKey: </h3><p id="currentPubkey"></p><br>
+<label>Private key: </label><label id="privKeyText">Hidden</label><button id="showPrivateButton">Show the private key</button>
+<hr>
+<h3>Create New Key</h3>
+<label>Give a name to your key:</label> <input type="text" id="newKeyName">
+<button id="createNewKeyButton">Create New Key</button>
+
+<hr>
+<h3>Select an account</h3>
+    <select id="accountSelection">
+    </select>
+    <button id="selectAccountButton">Select Account</button>
+
+<hr>
+<h3>Balance</h3>
+<label>Pending Balance: </label><p id="pendingBalance"></p><br>
+<label>Spendable Balance: </label><p id="spendableBalance"></p>
+
+<hr>
+<h3>Transaction</h3>
+<label>Destination: </label><input type="text" id="destinationPubkey"><br>
+<label>Fee (min 0.5): </label><input type="text" id="feeInput"><br>
+<label>Amount: </label><input type="text" id="amountInput"><br>
+<button id="makeTransaction">Send Coin!</button>
+
+<hr>
+<h3>Last Transactions</h3>
+<p id="lastTransactions"></p>
+
+<hr>
+</body>
+
+<script>
+
+</script>
+</html>
