@@ -1,4 +1,5 @@
 from HTTPManager.index import HTTPManager
+from BlockchainManager.index import BlockchainManager
 
 
 class Server:
@@ -9,14 +10,16 @@ class Server:
         self.socketManager = None
 
     def setManagers(self):
-        self.createHttpManager()
         self.createBlockchainManager()
+        self.createHttpManager()
         self.createSocketManager()
 
     def createHttpManager(self):
         self.httpManager = HTTPManager(self)
 
     def createBlockchainManager(self):
+        self.blockchainManager = BlockchainManager(self.myNodeId)
+
         pass
 
     def createSocketManager(self):
