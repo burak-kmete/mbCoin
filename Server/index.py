@@ -1,5 +1,7 @@
 from HTTPManager.index import HTTPManager
 from BlockchainManager.index import BlockchainManager
+from SocketManager.index import SocketManager
+import threading
 
 
 class Server:
@@ -15,12 +17,19 @@ class Server:
         self.createSocketManager()
 
     def createHttpManager(self):
-        self.httpManager = HTTPManager(self)
+        th = threading.Thread(target=self.httpManagerThreadFunction)
+        th.start()
 
     def createBlockchainManager(self):
         self.blockchainManager = BlockchainManager(self.myNodeId)
 
-        pass
-
     def createSocketManager(self):
-        pass
+        th = threading.Thread(target=self.socketManagerThreadFunction)
+        th.start()
+
+    def httpManagerThreadFunction(self):
+        self.httpManager = HTTPManager(self)
+
+    def socketManagerThreadFunction(self):
+        self.socketManager = SocketManager(self)
+        self.socketManager.startListener()

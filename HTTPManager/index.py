@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, request
-
+import threading
 
 class HTTPManager:
     def __init__(self, server):
@@ -50,6 +50,7 @@ class HTTPManager:
 
         @self.app.route("/api/maketransaction", methods=["POST"])
         def makeTransaction():
+            self.server.socketManager.createOperationThread("test_operation", {"sampleKey": "sampleData"})
             data = {'fee': request.json["fee"], 'amount': request.json["amount"],
                     'destination': request.json["destination"]}
             return jsonify(data), 200
