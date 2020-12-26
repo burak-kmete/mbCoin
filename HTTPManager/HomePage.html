@@ -1,19 +1,80 @@
+<!DOCTYPE html>
 <html>
-
 <head>
-    <script src="https://code.jquery.com/jquery-latest.min.js"></script>
-</head>
+   <script src="https://code.jquery.com/jquery-latest.min.js"></script>
 
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+  <style>
+  </style>
+</head>
 <body>
-<h3>Current Account PubKey: </h3><p id="currentPubkey"></p><br>
-<label>Private key: </label><label id="privKeyText">Hidden</label><button id="showPrivateButton">Show the private key</button>
-<hr>
+
+<nav class="navbar navbar-inverse visible-xs">
+  <div class="container-fluid">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="#">Logo</a>
+    </div>
+    <div class="collapse navbar-collapse" id="myNavbar">
+      <ul class="nav navbar-nav">
+    <script src="https://code.jquery.com/jquery-latest.min.js"></script>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid">
+  <div class="row content">
+    <div class="col-sm-3 sidenav hidden-xs">
+      <h2>MBCoin</h2>
+      <ul class="nav nav-pills nav-stacked">
+        <li class="active"><a href="#section1">Last Transactions</a></li>
+        <li><a href="#section2">t3</a></li>
+        <li><a href="#section3">t2</a></li>
+        <li><a href="#section3">t1</a></li>
+      </ul><br>
+    </div>
+    <br>
+
+    <div class="col-sm-9">
+      <div class="row">
+      <div class="col-sm-7">
+        <div class="well">
+
+  <h3>Current Account PubKey: </h3><p id="currentPubkey"></p><br>
+           <label>Private key: </label><label id="privKeyText">Hidden</label><button id="showPrivateButton">Show the private key</button>
+
+        </div>
+      </div>
+      <div class="col-sm-3">
+        <div class="well">
+
+  <h3>Balance</h3>
+  <label>Pending Balance: </label><p id="pendingBalance"></p><br>
+  <label>Spendable Balance: </label><p id="spendableBalance"></p>
+        </div>
+      </div>
+      </div>
+        <div class="row">
+        <div class="row-sm-3">
+          <div class="well">
+
 <h3>Create New Key</h3>
 <label>Give a name to your key:</label> <input type="text" id="newKeyName">
 <button id="createNewKeyButton">Create New Key</button>
-
-<hr>
-<h3>Select an account</h3>
+              <p id="newKey"></p>
+          </div>
+        </div>
+        <div class="row-sm-3">
+          <div class="well">
+    <h3>Select an account</h3>
     <select id="accountSelection">
          <option value="volvo">Volvo</option>
   <option value="saab">Saab</option>
@@ -21,31 +82,64 @@
   <option value="audi">Audi</option>
     </select>
     <button id="selectAccountButton">Select Account</button>
-
-<hr>
-<h3>Balance</h3>
-<label>Pending Balance: </label><p id="pendingBalance"></p><br>
-<label>Spendable Balance: </label><p id="spendableBalance"></p>
-
-<hr>
-<h3>Transaction</h3>
+          </div>
+        </div>
+        <div class="row-sm-3">
+          <div class="well">
+  <h3>Transaction</h3>
 <label>Destination: </label><input type="text" id="destinationPubkey"><br>
 <label>Fee (min 0.5): </label><input type="text" id="feeInput"><br>
 <label>Amount: </label><input type="text" id="amountInput"><br>
 <button id="makeTransaction">Send Coin!</button>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-4">
+          <div class="well">
+            <p>Text</p>
+            <p>Text</p>
+            <p>Text</p>
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <div class="well">
+            <p>Text</p>
+            <p>Text</p>
+            <p>Text</p>
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <div class="well">
+            <p>Text</p>
+            <p>Text</p>
+            <p>Text</p>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-8">
+          <div class="well">
+            <p>Text</p>
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <div class="well">
+            <p>Text</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-<hr>
-<h3>Last Transactions</h3>
-<p id="lastTransactions"></p>
-
-<hr>
 </body>
-
 <script>
     const URL_BASE = %s
 
 
     var createNewKeyButton = document.getElementById("createNewKeyButton")
+    var newKey = document.getElementById("newKey")
     var currentPubkey = document.getElementById("currentPubkey")
     var privKeyText = document.getElementById("privKeyText")
     var showPrivateButton = document.getElementById("showPrivateButton")
@@ -59,7 +153,40 @@
     var amountInput = document.getElementById("amountInput")
     var makeTransaction = document.getElementById("makeTransaction")
     var lastTransactions = document.getElementById("lastTransactions")
+            $.ajax({
+                type: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-type": "application/json"
+                },
+                url:URL_BASE + "/api/getPubKey",
+                data: JSON.stringify({ "name": newKeyName.value }),
+                success: function (response) {
+                    currentPubkey.innerHTML=response
+                    console.log(response)
+                    console.log("response")
+                },
+                error: function showErrorMessage(xhr, status, error) {
+                    console.log(xhr)
+                }
+            });
+            $.ajax({
+                type: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-type": "application/json"
+                },
+                url:URL_BASE + "/api/getbalance",
+                data: JSON.stringify({ "name": newKeyName.value }),
+                success: function (response) {
 
+                    pendingBalance.innerHTML=response.pending
+                    spendableBalance.innerHTML=response.spendable
+                },
+                error: function showErrorMessage(xhr, status, error) {
+                    console.log(xhr)
+                }
+            });
 
     if (createNewKeyButton) {
         createNewKeyButton.onclick = function () {
@@ -75,6 +202,8 @@
                 data: JSON.stringify({ "name": newKeyName.value }),
                 success: function (response) {
                     console.log(response)
+                    newKey.innerHTML=response
+
                 },
                 error: function showErrorMessage(xhr, status, error) {
                     console.log(xhr)
@@ -149,3 +278,4 @@
 
 </script>
 </html>
+

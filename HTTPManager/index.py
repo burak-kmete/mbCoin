@@ -19,10 +19,21 @@ class HTTPManager:
         self.app.run(host="127.0.0.1", port=5000 + self.server.myNodeId)
 
     def setAPIRoutes(self):
+        @self.app.route("/api/getPubKey", methods=["POST"])
+        def getPubKey():
+            lastKey=self.server.blockchainManager.getLastKeyfromList()
+
+            #data = {'key': lastKey}
+            #return jsonify(data), 200
+            return lastKey,200
         @self.app.route("/api/createkey", methods=["POST"])
         def createKey():
-            data = {'key': request.json["name"]}
-            return jsonify(data), 200
+            self.server.blockchainManager.createNewKey()
+            lastKey=self.server.blockchainManager.getLastKeyfromList()
+
+            #data = {'key': lastKey}
+            #return jsonify(data), 200
+            return lastKey,200
 
         @self.app.route("/api/selectaccount", methods=["POST"])
         def selectAccount():
@@ -31,7 +42,10 @@ class HTTPManager:
 
         @self.app.route("/api/getbalance", methods=["POST"])
         def getBalance():
-            data = {'balance': self.server.myNodeId}
+            print("get  alance")
+            data = {'spendable': self.server.blockchainManager.spendableBalance,
+                    'pending': self.server.blockchainManager.pendingBalance}
+            print(data)
             return jsonify(data), 200
 
         @self.app.route("/api/maketransaction", methods=["POST"])
