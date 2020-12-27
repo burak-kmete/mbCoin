@@ -21,7 +21,7 @@ class Server:
         th.start()
 
     def createBlockchainManager(self):
-        self.blockchainManager = BlockchainManager(self.myNodeId)
+        self.blockchainManager = BlockchainManager(self)
 
     def createSocketManager(self):
         th = threading.Thread(target=self.socketManagerThreadFunction)
