@@ -20,17 +20,15 @@ class Transaction:
         if isSpecialTx:
             self.specialAward = 10
             self.content = {"inputs": [], "outputs": [{"receiver":receiverPubkey, "amount": self.specialAward + fee}]}
-            self.id = SHA256.new(str.encode(self.getContentJson())).hexdigest()
         else:
-            #burayi yap.
-            pass
+            self.content = {"inputs": [], "outputs": [{"receiver": receiverPubkey, "amount": amount}]}
+        self.id = SHA256.new(str.encode(self.getContentJson())).hexdigest()
 
     def getContentJson(self):
         return json.dumps(self.content)
 
     def getTransactionJson(self):
         if self.isSpecialTx:
-#            return json.dumps({"content": self.getContentJson(), "id": self.id})
             return json.dumps({"content": self.content, "id": self.id})
         else:
             signer = DSS.new(ECC.import_key(self.senderPrivkey), 'fips-186-3')
@@ -84,7 +82,8 @@ class BlockchainManager:
             self.startGenesisOfBlockchain()
 
         else:
-            self.currentKey = self.allKeys[-1]
+            if len(self.allKeys) != 0:
+                self.currentKey = self.allKeys[-1]
 
     def setPreviousTransactions(self):
         with open("./NodeInfoFolder/" + str(self.server.myNodeId) + "/transactions.json") as f:
@@ -181,7 +180,7 @@ class BlockchainManager:
                 olderTx = self.allTransactions[key]
                 for olderTxInput in olderTx["content"]["inputs"]:
                     for newInput in txDict["content"]["inputs"]:
-                        if newInput["id"] == olderTxInput["id"]:
+                        if newInput == olderTxInput:
                             return {"success": False, "error": "Double spend"}
 
             # DOUBLE SPEND CHECK FOR PENDING TRANSACTIONS
@@ -189,12 +188,49 @@ class BlockchainManager:
                 olderTx = self.allTransactions[key]
                 for olderTxInput in olderTx["content"]["inputs"]:
                     for newInput in txDict["content"]["inputs"]:
-                        if newInput["id"] == olderTxInput["id"]:
+                        if newInput == olderTxInput:
                             return {"success": False, "error": "Double spend"}
 
             return {"success": True, "fee": totalInputAmount - expextedMinimumInputAmount + 0.5}
 
     def getBalance(self):
-        totalCoin = 0
+        spendableCoin = 0
         pending = 0
-        outputs = []
+        outputTxIdIndex = []
+        totalInputAmount = 0
+
+        # INPUT TOTAL
+        for key, value in self.allTransactions.items():
+            i = 0
+            while i < len(self.allTransactions[key]["content"]["outputs"]):
+                output =  self.allTransactions[key]["content"]["outputs"][i]
+                if output["receiver"] == self.currentKey["public"]:
+                    totalInputAmount += int(output["amount"])
+                    outputTxIdIndex.append({"id": key, "index":i})
+
+
+        # SUBTRACT THE COIN AMOUNT WHICH IS SPENT BEFORE
+        for key, value in self.allTransactions.items():
+            inputs = self.allTransactions[key]["content"]["inputs"]
+            for input in inputs:
+                for outputTxIdIndexPair in outputTxIdIndex:
+                    if input == outputTxIdIndex:
+                        totalInputAmount -= \
+                            self.allTransactions[input["id"]]["content"]["outputs"][input["index"]]["amount"]
+
+        for key, value in self.pendingTransactions.items():
+            for output in self.pendingTransactions[key]["content"]["outputs"]:
+                if output["receiver"] == self.currentKey["public"]:
+                    pending += output["amount"]
+
+            for input in self.pendingTransactions[key]["content"]["inputs"]:
+                if self.allTransactions[input["id"]]["content"]["outputs"][input["index"]]["receiver"] == \
+                        self.currentKey["public"]:
+                    pending -= self.allTransactions[input["id"]]["content"]["outputs"][input["index"]]["amount"]
+
+        if pending < 0:
+            spendableCoin = totalInputAmount + pending
+        else:
+            spendableCoin = totalInputAmount
+
+        return {"pending": pending, "spendable": spendableCoin}
