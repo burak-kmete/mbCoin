@@ -14,9 +14,10 @@ import json
 ######################################################
 
 class Transaction:
-    def __init__(self, sender, receiver, amount,fee):
+    def __init__(self, sender, receiver, amount,fee,inputs):
         self.sender = sender
         self.receiver = receiver
+        self.inputs=inputs
         self.amount = amount
         self.fee=fee
         self.txid = SHA256.new(self.get_json().encode('UTF-8'))
@@ -25,12 +26,16 @@ class Transaction:
 
     def get_json(self):
         x = {
-            "id": self.txid,
-            "sender": self.sender.publickey().exportKey(format("OpenSSH")).decode(),
+            "sender": self.sender.publickey().exportKey(format("PEM")).decode(),
             "receiver": self.receiver,
+            "inputs":self.inputs,
             "amount": self.amount
         }
         return json.dumps(x)
+
+    def getTransaction(self):
+        transaction = {"id": self.txid.hexdigest(), "signature": self.signature.hex(), "content": self.get_json()}
+        return json.dumps(transaction)
 
 class GenesisBlock:
     def __init__(self, genesisTransaction):
@@ -145,6 +150,71 @@ class BlockchainManager:
             json.dump({"keys": self.allKeys}, f)
             f.close()
 
+    def makeTransaction(self, fee, amount, destination):
+        if (fee < self.minimumFee):
+            print("You have to give minimum 0.5 as fee !")
+            return False
+        outputs_of_pre_txs=[] # txs=transactions
+
+        ## transactions in blocks ##
+        for block in self.allBlocks:
+            content=block["content"]
+            blocks_txs=content["transactions"]
+            for transaction in blocks_txs:
+                rec_key=transaction["receiver"]
+                for key in self.allKeys:
+                    if(rec_key == key):
+                        outputs_of_pre_txs.append(transaction["id"])
+
+        for block in self.allBlocks:
+            content = block["content"]
+            blocks_txs = content["transactions"]
+            for transaction in blocks_txs:
+                tx_content=transaction["content"]
+                inputs=tx_content["inputs"] #inputs list of current historic transaction
+                inputs_set=set(inputs)          ##daha önceden zaten kullanılmış transactionlar
+                out_set=set(outputs_of_pre_txs) ##kullanmak istediğim transactionlar
+                ##################################outta olup inputsata olmayanları alıyorum
+                unspend_txs=out_set-inputs_set
+                outputs_of_pre_txs=list(unspend_txs) #remaining outputs which are usable
+
+        ##transactions in pool##
+        for transaction in self.allTransactions:
+            rec_key=transaction["receiver"]
+            for key in self.allKeys:
+                if(rec_key == key):
+                    outputs_of_pre_txs.append(transaction["id"])
+
+        for transaction in blocks_txs:
+            tx_content = transaction["content"]
+            inputs = tx_content["inputs"]  # inputs list of current historic transaction
+            inputs_set = set(inputs)  ##daha önceden zaten kullanılmış transactionlar
+            out_set = set(outputs_of_pre_txs)  ##kullanmak istediğim transactionlar
+            ##################################outta olup inputsata olmayanları alıyorum
+            unspend_txs = out_set - inputs_set
+            outputs_of_pre_txs = list(unspend_txs)  # remaining outputs which are usable
+
+        if (self.spendableBalance < (amount + fee)):
+            print("you havent sufficient amount in your balance")
+            return False
+        t = Transaction(self.getLastKeyfromList, destination, amount, fee,outputs_of_pre_txs)
+
+        verifier = pkcs1_15.new(self.getLastKeyfromList)
+        v_hash = SHA256.new()
+        v_hash.update(t.get_json().encode('UTF-8'))
+        '''
+        Network should verify transaction
+        try:
+            verifier.verify(v_hash, t.signature)
+            user = get_user_from_id(receiver_pub_id)
+            user.balance = user.balance + amount
+            self.balance = self.balance - amount
+            return t
+        except ValueError:
+            print("Transaction is not valid !")
+            return 0
+        '''
+        pass
 #########################################################################################################
     ######################################################################################################
     ######################################################################################################
@@ -183,32 +253,7 @@ class BlockchainManager:
     def getKeyfromList(self,index):
         return self.currentKeys[index]["public"]
 
-    def makeTransaction(self, fee, amount, destination):
-        if(fee<self.minimumFee):
-            print("You have to give minimum 0.5 as fee !")
-            return False
 
-        if (self.spendableBalance < (amount+fee)):
-            print("you havent sufficient amount in your balance")
-            return False
-        t = Transaction(self.getLastKeyfromList, destination, amount,fee)
-
-        verifier = pkcs1_15.new(self.getLastKeyfromList)
-        v_hash = SHA256.new()
-        v_hash.update(t.get_json().encode('UTF-8'))
-        '''
-        Network should verify transaction
-        try:
-            verifier.verify(v_hash, t.signature)
-            user = get_user_from_id(receiver_pub_id)
-            user.balance = user.balance + amount
-            self.balance = self.balance - amount
-            return t
-        except ValueError:
-            print("Transaction is not valid !")
-            return 0
-        '''
-        pass
 
     def onNewTransactionCame(self,amount):
         self.pendingBalance=self.pendingBalance+amount
