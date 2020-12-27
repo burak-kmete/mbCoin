@@ -14,52 +14,50 @@ import json
 ######################################################
 
 class Transaction:
-    def __init__(self, sender, receiver, amount,fee,inputs):
-        self.sender = sender
-        self.receiver = receiver
-        self.inputs=inputs
-        self.amount = amount
-        self.fee=fee
-        self.txid = SHA256.new(self.get_json().encode('UTF-8'))
-        signer = pkcs1_15.new(sender)
-        self.signature = signer.sign(self.txid)
+    def __init__(self, senderPrivkey, senderPubkey, receiverPubkey, amount, fee, isSpecialTx):
+        self.isSpecialTx = isSpecialTx
+        self.senderPrivkey = senderPrivkey
+        if isSpecialTx:
+            self.specialAward = 10
+            self.content = {"inputs": [], "outputs": [{"receiver":receiverPubkey, "amount": self.specialAward + fee}]}
+            self.id = SHA256.new(str.encode(self.getContentJson())).hexdigest()
+        else:
+            #burayi yap.
+            pass
 
-    def get_json(self):
-        x = {
-            "sender": self.sender.publickey().exportKey(format("PEM")).decode(),
-            "receiver": self.receiver,
-            "inputs":self.inputs,
-            "amount": self.amount
-        }
-        return json.dumps(x)
+    def getContentJson(self):
+        return json.dumps(self.content)
 
-    def getTransaction(self):
-        transaction = {"id": self.txid.hexdigest(), "signature": self.signature.hex(), "content": self.get_json()}
-        return json.dumps(transaction)
+    def getTransactionJson(self):
+        if self.isSpecialTx:
+#            return json.dumps({"content": self.getContentJson(), "id": self.id})
+            return json.dumps({"content": self.content, "id": self.id})
+        else:
+            signer = DSS.new(ECC.import_key(self.senderPrivkey), 'fips-186-3')
+            signature = signer.sign(self.id).hex()
 
-class GenesisBlock:
-    def __init__(self, genesisTransaction):
-        self.content = {"transactions": [], "awardTx": genesisTransaction.getTransaction()}
-        self.id = SHA256.new(str.encode(json.dumps(self.content)))
+            return json.dumps({"content": self.getContentJson(), "id":self.id, "signature": signature})
 
-    def getBlock(self):
-        block = {"id": self.id.hexdigest(), "content": self.content}
-        return json.dumps(block)
 
-class GenesisTransaction:
-    def __init__(self, privKey):
-        self.inputs = []
-        self.outputs = [{"receiver" : ECC.import_key(privKey).public_key().export_key(format="PEM"), "amount": 100}]
-        self.id = SHA256.new(str.encode(self.getJson()))
-        self.signature = DSS.new(ECC.import_key(privKey), 'fips-186-3').sign(self.id)
+class Block:
+    def __init__(self, minerPubkey, txIdList, previousBlockId, isGenesisBlock):
+        self.txIdList = txIdList
+        if isGenesisBlock:
+            self.transactions = []
+            self.specialTx = json.loads(Transaction(None, None, minerPubkey, 100, 0, True).getTransactionJson())
+            self.previousBlockId = 0
+            self.nonce = 0
+            self.id = 0
+        else:
+            pass
+    def getContent(self):
+        return {"transactions": self.transactions, "specialTx": self.specialTx,
+                           "previousBlockId": self.previousBlockId, "nonce": self.nonce}
 
-    def getJson(self):
-        content = {"inputs": self.inputs, "outputs": self.outputs}
-        return json.dumps(content)
+    def getBlockJson(self):
+        return json.dumps({"id": self.id, "content": self.getContent()})
 
-    def getTransaction(self):
-        transaction = {"id": self.id.hexdigest(), "signature": self.signature.hex(), "content": self.getJson()}
-        return json.dumps(transaction)
+
 
 class BlockchainManager:
     def __init__(self, server):
@@ -68,24 +66,12 @@ class BlockchainManager:
         self.allTransactions = {}
         self.allBlocks = []
         self.currentKey = {}  # {name, private, public}
+        self.pendingTransactions = {}
 
         self.setPreviousKeys()
         self.setPreviousTransactions()
         self.setPreviousBlocks()
-
-        self.currentKeys = []
-        self.takeKeysfromFolder()
-        #if there is no key in folder structure create first one
-        if (len(self.currentKeys)==0):
-            self.createNewKey()
-            self.UserId=self.getLastKeyfromList()
-            ####SİLİNECEK COMMENT####
-            #ödev dosyasında böyle bir şey geçiyodu..kaldırabiliriz#
-            #id olarak public key kullanılması mevzusu..
-        self.nodeId=0
-        self.minimumFee = 0.5
-        self.pendingBalance=0
-        self.spendableBalance=0
+        print(2)
 
     def setPreviousKeys(self):
         with open("./NodeInfoFolder/" + str(self.server.myNodeId) + "/keys.json") as f:
@@ -103,28 +89,32 @@ class BlockchainManager:
     def setPreviousTransactions(self):
         with open("./NodeInfoFolder/" + str(self.server.myNodeId) + "/transactions.json") as f:
             self.allTransactions = json.load(f)
+            for key, value in self.allTransactions.items():
+                self.allTransactions[key] = self.getDictFromTxJson(value)
             f.close()
 
     def setPreviousBlocks(self):
         with open("./NodeInfoFolder/" + str(self.server.myNodeId) + "/blocks.json") as f:
             self.allBlocks = json.load(f)["blocks"]
+            i = 0
+            while i < len(self.allBlocks):
+                self.allBlocks[i] = self.getDictFromBlockJson(self.allBlocks[i])
+                i += 1
             f.close()
 
 
     def startGenesisOfBlockchain(self):
         self.addNewKey("mbKey")
         self.selectKey("mbKey")
-        genesisTransaction = GenesisTransaction(self.currentKey["private"])
-        self.saveTransaction(genesisTransaction)
-        genesisBlock = GenesisBlock(genesisTransaction)
-
+        genesisBlock = Block(self.currentKey["public"], [], 0, True)
+        self.saveTransaction(json.dumps(genesisBlock.specialTx))
 
         with open("./NodeInfoFolder/" + str(self.server.myNodeId) + "/blocks.json", "w") as f:
-            json.dump({"blocks": [genesisBlock.getBlock()]}, f)
+            json.dump({"blocks": [genesisBlock.getBlockJson()]}, f)
             f.close()
 
-    def saveTransaction(self, transactionObject):
-        self.allTransactions.update({transactionObject.id.hexdigest(): transactionObject.getTransaction()})
+    def saveTransaction(self, transactionJson):
+        self.allTransactions.update({json.loads(transactionJson)["id"]: transactionJson})
         with open("./NodeInfoFolder/" + str(self.server.myNodeId) + "/transactions.json", "w") as f:
             json.dump(self.allTransactions, f)
             f.close()
@@ -150,116 +140,61 @@ class BlockchainManager:
             json.dump({"keys": self.allKeys}, f)
             f.close()
 
-    def makeTransaction(self, fee, amount, destination):
-        if (fee < self.minimumFee):
-            print("You have to give minimum 0.5 as fee !")
-            return False
-        outputs_of_pre_txs=[] # txs=transactions
+    def getDictFromTxJson(self, txJson):
+        return json.loads(txJson)
 
-        ## transactions in blocks ##
-        for block in self.allBlocks:
-            content=block["content"]
-            blocks_txs=content["transactions"]
-            for transaction in blocks_txs:
-                rec_key=transaction["receiver"]
-                for key in self.allKeys:
-                    if(rec_key == key):
-                        outputs_of_pre_txs.append(transaction["id"])
+    def getDictFromBlockJson(self, block):
+        return json.loads(block)
 
-        for block in self.allBlocks:
-            content = block["content"]
-            blocks_txs = content["transactions"]
-            for transaction in blocks_txs:
-                tx_content=transaction["content"]
-                inputs=tx_content["inputs"] #inputs list of current historic transaction
-                inputs_set=set(inputs)          ##daha önceden zaten kullanılmış transactionlar
-                out_set=set(outputs_of_pre_txs) ##kullanmak istediğim transactionlar
-                ##################################outta olup inputsata olmayanları alıyorum
-                unspend_txs=out_set-inputs_set
-                outputs_of_pre_txs=list(unspend_txs) #remaining outputs which are usable
+    def txValidityCheck(self, txDict):
+        hash = SHA256.new(str.encode(json.dumps(txDict["content"]))).hexdigest()
+        if not(hash == txDict["id"]):
+            return {"success": False, "error": "Wrong hash, content broken"}
+        else:
+            expextedMinimumInputAmount = 0.5
+            for output in txDict["content"]["outputs"]:
+                expextedMinimumInputAmount += output["amount"]
 
-        ##transactions in pool##
-        for transaction in self.allTransactions:
-            rec_key=transaction["receiver"]
-            for key in self.allKeys:
-                if(rec_key == key):
-                    outputs_of_pre_txs.append(transaction["id"])
+            totalInputAmount = 0
 
-        for transaction in blocks_txs:
-            tx_content = transaction["content"]
-            inputs = tx_content["inputs"]  # inputs list of current historic transaction
-            inputs_set = set(inputs)  ##daha önceden zaten kullanılmış transactionlar
-            out_set = set(outputs_of_pre_txs)  ##kullanmak istediğim transactionlar
-            ##################################outta olup inputsata olmayanları alıyorum
-            unspend_txs = out_set - inputs_set
-            outputs_of_pre_txs = list(unspend_txs)  # remaining outputs which are usable
+            # SIGNITURE AND PUBKEY CHECK
+            for input in txDict["content"]["inputs"]:
+                inputTx = self.allTransactions[input["id"]]
+                inputTxContent = inputTx["content"]
+                outputsOfinputTx = inputTxContent["outputs"]
+                try:
+                    h2 = SHA256.new(str.encode(json.dumps(inputTxContent)))
+                    verifier = DSS.new(ECC.import_key(outputsOfinputTx[int(input["index"])]), 'fips-186-3')
+                    verifier.verify(h2, bytes.fromhex(txDict["signature"]))
 
-        if (self.spendableBalance < (amount + fee)):
-            print("you havent sufficient amount in your balance")
-            return False
-        t = Transaction(self.getLastKeyfromList, destination, amount, fee,outputs_of_pre_txs)
+                except:
+                    return {"success": False, "error": "Not authorized to use the output"}
 
-        verifier = pkcs1_15.new(self.getLastKeyfromList)
-        v_hash = SHA256.new()
-        v_hash.update(t.get_json().encode('UTF-8'))
-        '''
-        Network should verify transaction
-        try:
-            verifier.verify(v_hash, t.signature)
-            user = get_user_from_id(receiver_pub_id)
-            user.balance = user.balance + amount
-            self.balance = self.balance - amount
-            return t
-        except ValueError:
-            print("Transaction is not valid !")
-            return 0
-        '''
-        pass
-#########################################################################################################
-    ######################################################################################################
-    ######################################################################################################
+                totalInputAmount += int(outputsOfinputTx[int(input["index"])]["amount"])
+
+            # AMOUNT CHECK
+            if totalInputAmount < expextedMinimumInputAmount:
+                return {"success": False, "error": "Insufficient input"}
+
+            # DOUBLE SPEND CHECK FOR ACCEPTED BLOCKS
+            for key, value in self.allTransactions.items():
+                olderTx = self.allTransactions[key]
+                for olderTxInput in olderTx["content"]["inputs"]:
+                    for newInput in txDict["content"]["inputs"]:
+                        if newInput["id"] == olderTxInput["id"]:
+                            return {"success": False, "error": "Double spend"}
+
+            # DOUBLE SPEND CHECK FOR PENDING TRANSACTIONS
+            for key, value in self.pendingTransactions.items():
+                olderTx = self.allTransactions[key]
+                for olderTxInput in olderTx["content"]["inputs"]:
+                    for newInput in txDict["content"]["inputs"]:
+                        if newInput["id"] == olderTxInput["id"]:
+                            return {"success": False, "error": "Double spend"}
+
+            return {"success": True, "fee": totalInputAmount - expextedMinimumInputAmount + 0.5}
 
     def getBalance(self):
-        return self.balance
-
-    def takeKeysfromFolder(self):
-        os.chdir('NodeInfoFolder/'+str(self.server.myNodeId))
-
-        for filename in glob.glob('*.pem'):
-            with open(os.path.join(os.getcwd(), filename), 'r') as f:  # open in readonly mode
-                key = RSA.import_key(f.read())
-                keyPair = {"private": key.export_key('PEM'), "public": key.publickey().exportKey(format("PEM"))}
-                self.currentKeys.append(keyPair)
-        os.chdir("..")
-        os.chdir("..")
-
-
-    def setKeys(self, publicKey):
-        #çözemedim :)
-        pass
-
-    def createNewKey(self):
-        key = RSA.generate(2048)
-        f = open('NodeInfoFolder/'+str(self.server.myNodeId)+'/mykey_'+str(len(self.currentKeys))+'.pem', 'wb+')
-        f.write(key.publickey().export_key('PEM'))
-        f.close()
-
-        keyPair={"private": key.export_key('PEM'), "public": key.publickey().exportKey(format("PEM"))}
-        self.currentKeys.append(keyPair)
-        pass
-
-    def getLastKeyfromList(self):
-        return self.currentKeys[-1]["public"]
-    def getKeyfromList(self,index):
-        return self.currentKeys[index]["public"]
-
-
-
-    def onNewTransactionCame(self,amount):
-        self.pendingBalance=self.pendingBalance+amount
-    def onTransactionBecomeValid(self,amount):
-        self.pendingBalance=self.pendingBalance-amount
-        self.spendableBalance=self.spendableBalance+amount
-
-    def getBestBlock(self):
-        pass
+        totalCoin = 0
+        pending = 0
+        outputs = []

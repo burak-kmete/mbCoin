@@ -43,8 +43,8 @@ class HTTPManager:
         @self.app.route("/api/getbalance", methods=["POST"])
         def getBalance():
             print("get  alance")
-            data = {'spendable': self.server.blockchainManager.spendableBalance,
-                    'pending': self.server.blockchainManager.pendingBalance}
+            data = {'spendable': "asd",
+                    'pending': "asd"}
             print(data)
             return jsonify(data), 200
 
